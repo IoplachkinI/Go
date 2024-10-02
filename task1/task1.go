@@ -11,12 +11,17 @@ type Book struct {
 	Year int
 }
 
+type IdBook struct {
+	Id int
+	Book Book
+}
+
 type Storage interface {
 	Init()
 	Search(id int) (Book, bool)
 	Add(id int, book Book)
 	Rehash(generator IdGenerator)
-	GetRawData() []struct {int; Book}
+	GetRawData() []IdBook
 }
 
 type MapStorage struct {
@@ -37,53 +42,52 @@ func (ms *MapStorage) Search(id int) (Book, bool) {
 }
 
 func (ms *MapStorage) Rehash (generator IdGenerator) {
-	new_storage := make(map[int]Book)
+	newStorage := make(map[int]Book)
 	for _, book := range ms.storage {
-		new_storage[generator.GenerateId(book.Name)] = book
+		newStorage[generator.GenerateId(book.Name)] = book
 	}
-	ms.storage = new_storage
+	ms.storage = newStorage
 }
 
-func (ms* MapStorage) GetRawData() []struct {int; Book} {
-	tmp_slice := make([]struct {int; Book}, 0, 0)
+func (ms* MapStorage) GetRawData() []IdBook {
+	tmpSlice := make([]IdBook, 0, 0)
 	for id, book := range ms.storage {
-		tmp_slice = append(tmp_slice, struct {int; Book}{id, book})
+		tmpSlice = append(tmpSlice, IdBook{id, book})
 	}
-	return tmp_slice
+	return tmpSlice
 }
 
 type SliceStorage struct {
-	storage [] struct {int; Book}
+	storage [] IdBook
 }
 
 func (ss *SliceStorage) Init() {
-	ss.storage = make([]struct {int; Book}, 0, 0)
+	ss.storage = make([]IdBook, 0, 0)
 }
 
 func (ss *SliceStorage) Add(id int, book Book) {
-	ss.storage = append(ss.storage, struct {int; Book}{id, book})
+	ss.storage = append(ss.storage, IdBook{id, book})
 }
 
 func (ss *SliceStorage) Search(id int) (Book, bool) {
-	for _, pair := range ss.storage {
-		var book_id, book = pair.int, pair.Book
-		if (book_id == id) {
-			return book, true;
+	for _, idBook := range ss.storage {
+		if (idBook.Id == id) {
+			return idBook.Book, true;
 		}
 	}
 	return Book{}, false;
 }
 
 func (ss *SliceStorage) Rehash(generator IdGenerator) {
-	new_storage := make([]struct {int; Book}, 0, 0)
-	for _, pair := range ss.storage {
-		new_storage = append(new_storage, 
-			struct {int; Book}{generator.GenerateId(pair.Name), pair.Book})
+	newStorage := make([]IdBook, 0, 0)
+	for _, idBook := range ss.storage {
+		newStorage = append(newStorage, 
+			IdBook{generator.GenerateId(idBook.Book.Name), idBook.Book})
 	}
-	ss.storage = new_storage
+	ss.storage = newStorage
 }
 
-func (ss *SliceStorage) GetRawData() []struct {int; Book} {
+func (ss *SliceStorage) GetRawData() []IdBook {
 	return ss.storage
 }
 
@@ -99,8 +103,8 @@ type PolynomialHasher struct {
 func (hasher PolynomialHasher) GenerateId(str string) int {
 	var hash, deg = 0, 1
 	for _, char := range str {
-		char_code := (int(char) - '0')
-		hash = (hash + (char_code * deg) % hasher.Mod) % hasher.Mod
+		charCode := (int(char) - '0')
+		hash = (hash + (charCode * deg) % hasher.Mod) % hasher.Mod
 		deg = (deg * hasher.Mult) % hasher.Mod
 	}
 	return hash
@@ -111,8 +115,8 @@ type SimpleHasher struct {}
 func (hasher SimpleHasher) GenerateId(str string) int {
 	sum := 0
 	for _, char := range str {
-		char_code := (int(char) - '0')
-		sum += char_code * char_code
+		charCode := (int(char) - '0')
+		sum += charCode * charCode
 	}
 	return sum
 }
@@ -143,8 +147,8 @@ func (lib* Library) ChangeGenerator(generator IdGenerator) {
 
 // Needs empty Storage object
 func (lib* Library) ChangeStorage(storage Storage) {
-	for _, pair := range lib.storage.GetRawData() {
-		storage.Add(pair.int, pair.Book);
+	for _, idBook := range lib.storage.GetRawData() {
+		storage.Add(idBook.Id, idBook.Book);
 	}
 	lib.storage = storage
 }
@@ -171,7 +175,7 @@ func TestEntry(name string, lib *Library) {
 	}
 }
 
-func main() {
+func NewLibrary() Library {
 	books := []Book {
 		{"1984", "Джордж Оруэлл", "Роман-антиутопия", 1948},
 		{"Обломов", "Гончаров И. А", "Роман", 1859},
@@ -179,29 +183,35 @@ func main() {
 		{"Гранатовый браслет", "Куприн А. И.", "Повесть", 1910},
 	}
 
-	poly_hasher := PolynomialHasher{107_381_377, 11}
-	simple_hasher := SimpleHasher{}
+	simpleHasher := SimpleHasher{}
 
-	lib := Library{storage: &MapStorage{}, generator: simple_hasher}
+	lib := Library{storage: &MapStorage{}, generator: simpleHasher}
 	lib.Init()
 
 	for _, book := range books {
 		lib.AddBook(book)
 	}
 
+	return lib
+}
+
+func main() {
+	lib := NewLibrary();
+
 	GetInfoByName("1984", &lib)
 
 	TestEntry("Обломов", &lib)
 	TestEntry("Капитанская дочка", &lib)
-
+	
+	polyHasher := PolynomialHasher{107_381_377, 11}
+	lib.ChangeGenerator(polyHasher)
 	fmt.Println("Generator function changed!")
-	lib.ChangeGenerator(poly_hasher)
 
 	TestEntry("1984", &lib)
 	TestEntry("Бедная Лиза", &lib)
 
-	fmt.Println("Storage changed!")
 	lib.ChangeStorage(&SliceStorage{})
+	fmt.Println("Storage changed!")
 
 	TestEntry("Обломов", &lib)
 	TestEntry("Обломовъ", &lib)
