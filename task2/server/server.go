@@ -21,12 +21,17 @@ func Decode(w http.ResponseWriter, req *http.Request) {
     err := json.NewDecoder(req.Body).Decode(&reqBody)
 
     if err != nil {
-        http.Error(w, "Couldn't decode request string:" + err.Error(),
+        http.Error(w, "Couldn't parse request: " + err.Error(),
         http.StatusBadRequest)
         return
     }
 
-    sDec, _ := base64.StdEncoding.DecodeString(reqBody.InputString)
+    sDec, err := base64.StdEncoding.DecodeString(reqBody.InputString)
+    if err != nil {
+        http.Error(w, "Couldn't decode request string: " + err.Error(),
+        http.StatusBadRequest)
+        return
+    }
 
     resp := decode.DecodeResponse{}
     resp.OutputString = string(sDec)
