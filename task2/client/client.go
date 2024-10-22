@@ -1,9 +1,8 @@
-package main
+package client
 
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,9 +12,7 @@ import (
 	"task2/decode"
 )
 
-func SendDecode(encMsg string, client *http.Client) {
-	url := "http://localhost:8080/decode"
-
+func SendDecode(encMsg string, client *http.Client, url string) {
 	reqBody := decode.DecodeRequest{encMsg}
 
 	body, err := json.Marshal(reqBody)
@@ -50,9 +47,7 @@ func SendDecode(encMsg string, client *http.Client) {
 	fmt.Println("OutputString:", resp.OutputString)
 }
 
-func SendHardOp(client *http.Client) {
-	url := "http://localhost:8080/hard-op"
-
+func SendHardOp(client *http.Client, url string) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		log.Fatal("Couldn't create request:" + err.Error())
@@ -72,9 +67,7 @@ func SendHardOp(client *http.Client) {
 	fmt.Println("Response code:", res.StatusCode)
 }
 
-func SendVersion(client *http.Client) {
-	url := "http://localhost:8080/version"
-
+func SendVersion(client *http.Client, url string) {
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		log.Fatal("Couldn't create request:" + err.Error())
@@ -87,20 +80,10 @@ func SendVersion(client *http.Client) {
 
 	defer res.Body.Close()
 
-	body, _ := io.ReadAll(res.Body)
+	body, err := io.ReadAll(res.Body)
+	if err != nil {
+		log.Fatal("Error reading request body:" + err.Error())
+	}
 
 	fmt.Println("Semver:", string(body))
-}
-
-func main() {
-	client := &http.Client{}
-
-	msg := "Awesome test message"
-	encMsg := base64.StdEncoding.EncodeToString([]byte(msg))
-
-	SendDecode(encMsg, client)
-
-	SendHardOp(client)
-
-	SendVersion(client)
 }
